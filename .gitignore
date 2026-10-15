@@ -1,2 +1,11 @@
-# Local C++ test files
+# Tests et revisions personnels
 t.cpp
+/rev/
+
+# Executables des exercices
+a.out
+/level0/polyset/polyset
+/level0/vect2/vect2
+/level0/bigint/bigint
+/level1/bsq/bsq
+/level1/life/life

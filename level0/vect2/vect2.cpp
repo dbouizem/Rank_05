@@ -15,8 +15,11 @@ vect2::~vect2()
 
 vect2& vect2::operator=(vect2 const& other)
 {
-	x = other.x;
-	y = other.y;
+	if (this != &other)
+	{
+		x = other.x;
+		y = other.y;
+	}
 	return (*this);
 }
 
