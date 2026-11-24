@@ -1,6 +1,7 @@
 #include "bsq.h"
 
-int	read_symbol(char *line, int *i, char *s)
+/* Each symbol is preceded by a space separator. */
+int		read_symbol(char *line, int *i, char *s)
 {
 	if (line[*i] != ' ' || line[*i + 1] < 32 || line[*i + 1] > 126)
 		return (-1);
@@ -9,6 +10,7 @@ int	read_symbol(char *line, int *i, char *s)
 	return (0);
 }
 
+/* Free the allocated rows, then the array of pointers. */
 void	free_grid(char **grid, int count)
 {
 	int	y;
@@ -22,7 +24,8 @@ void	free_grid(char **grid, int count)
 	free(grid);
 }
 
-int	check_row(char *row, t_header *header, int y)
+/* Allow only empty/obstacle symbols and check width and line ending. */
+int		check_row(char *row, t_header *header, int y)
 {
 	int	x;
 
@@ -35,23 +38,15 @@ int	check_row(char *row, t_header *header, int y)
 	}
 	if (y == 0)
 		header->w = x;
-	if (x == 0 || x != header->w || row[x] != '\n')
+	if (x == 0 || header->w != x || row[x] != '\n')
 		return (-1);
 	return (0);
 }
 
-int	min_three(int a, int b, int c)
+/* Stored rows already include their newline. */
+void	print_grid(char **grid, t_header *header)
 {
-	if (a > b)
-		a = b;
-	if (a > c)
-		a = c;
-	return (a);
-}
-
-void	print_grid(char	**grid, t_header *header)
-{
-	int	y;
+	int y;
 
 	y = 0;
 	while (y < header->h)
@@ -59,4 +54,14 @@ void	print_grid(char	**grid, t_header *header)
 		fputs(grid[y], stdout);
 		y++;
 	}
+}
+
+/* Return the smallest of the three neighboring sizes. */
+int		min_three(int a, int b, int c)
+{
+	if (a > b)
+		a = b;
+	if (a > c)
+		a = c;
+	return (a);
 }

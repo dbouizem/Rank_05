@@ -1,128 +1,30 @@
-#include <limits.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
+#include "life.h"
 
-typedef struct s_board
-{
-	int		width;
-	int		height;
-	char	*cells;
-}	t_board;
+/*
+** Steps to build the exercise:
+** 1. Read and validate the arguments: width, height, iterations.
+** 2. Allocate grid.c and next with calloc (dead cells).
+** 3. Write print_grid and test the board display.
+** 4. Write draw_grid to draw with the pen using commands from stdin.
+** 5. Write simulation to run the generations and swap the boards.
+** 6. Write next_generation to compute one generation in next.
+** 7. Write count_neighbors, then test and print the final result.
+**    Free both boards after use.
+*/
 
-static int	parse_number(const char *text, int *number)
-{
-	int	digit;
-
-	*number = 0;
-	if (*text == '+')
-		text++;
-	if (*text == '\0')
-		return (0);
-	while (*text)
-	{
-		if (*text < '0' || *text > '9')
-			return (0);
-		digit = *text - '0';
-		if (*number > (INT_MAX - digit) / 10)
-			return (0);
-		*number = *number * 10 + digit;
-		text++;
-	}
-	return (1);
-}
-
-static int	draw_board(t_board *board)
-{
-	int		x;
-	int		y;
-	int		drawing;
-	char	command;
-	ssize_t	bytes_read;
-
-	x = 0;
-	y = 0;
-	drawing = 0;
-	bytes_read = read(STDIN_FILENO, &command, 1);
-	while (bytes_read > 0)
-	{
-		if (command == 'x')
-			drawing = !drawing;
-		else if (command == 'w' && y > 0)
-			y--;
-		else if (command == 'a' && x > 0)
-			x--;
-		else if (command == 's' && y < board->height - 1)
-			y++;
-		else if (command == 'd' && x < board->width - 1)
-			x++;
-		if (drawing)
-			board->cells[(size_t)y * board->width + x] = 1;
-		bytes_read = read(STDIN_FILENO, &command, 1);
-	}
-	return (bytes_read == 0);
-}
-
-static int	count_neighbors(const t_board *board, int x, int y)
-{
-	int	dx;
-	int	dy;
-	int	count;
-
-	count = 0;
-	dy = -1;
-	while (dy <= 1)
-	{
-		dx = -1;
-		while (dx <= 1)
-		{
-			if ((dx != 0 || dy != 0)
-				&& x + dx >= 0 && x + dx < board->width
-				&& y + dy >= 0 && y + dy < board->height)
-				count += board->cells[(size_t)(y + dy) * board->width
-					+ x + dx];
-			dx++;
-		}
-		dy++;
-	}
-	return (count);
-}
-
-static void	next_generation(const t_board *board, char *next)
-{
-	int		x;
-	int		y;
-	int		neighbors;
-	size_t	index;
-
-	y = 0;
-	while (y < board->height)
-	{
-		x = 0;
-		while (x < board->width)
-		{
-			index = (size_t)y * board->width + x;
-			neighbors = count_neighbors(board, x, y);
-			next[index] = (neighbors == 3
-					|| (board->cells[index] && neighbors == 2));
-			x++;
-		}
-		y++;
-	}
-}
-
-static void	print_board(const t_board *board)
+/* Print 'O' for a live cell, otherwise a space. */
+void	print_grid(t_grid *grid)
 {
 	int	x;
 	int	y;
 
 	y = 0;
-	while (y < board->height)
+	while (y < grid->h)
 	{
 		x = 0;
-		while (x < board->width)
+		while (x < grid->w)
 		{
-			if (board->cells[(size_t)y * board->width + x])
+			if (grid->c[y * grid->w + x])
 				putchar('O');
 			else
 				putchar(' ');
@@ -133,38 +35,128 @@ static void	print_board(const t_board *board)
 	}
 }
 
-int	main(int argc, char **argv)
+/* Draw until EOF: the pen starts at (0, 0), lifted. */
+void	draw_grid(t_grid *grid)
 {
-	t_board	board;
-	char	*next;
-	char	*temporary;
-	int		iterations;
+	char	cmd;
+	int		x;
+	int		y;
+	int		draw;
 
-	if (argc != 4 || !parse_number(argv[1], &board.width)
-		|| !parse_number(argv[2], &board.height)
-		|| !parse_number(argv[3], &iterations)
-		|| board.width == 0 || board.height == 0)
-		return (1);
-	/* calloc initialise toutes les cellules a 0 (mortes). */
-	board.cells = calloc((size_t)board.height, (size_t)board.width);
-	next = calloc((size_t)board.height, (size_t)board.width);
-	if (!board.cells || !next || !draw_board(&board))
+	x = 0;
+	y = 0;
+	draw = 0;
+	while (read(STDIN_FILENO, &cmd, 1) == 1)
 	{
-		free(board.cells);
-		free(next);
-		return (1);
+		/* x toggles drawing; movement stays within the board. */
+		if (cmd == 'x')
+			draw = !draw;
+		else if (cmd == 'w' && y > 0)
+			y--;
+		else if (cmd == 'a' && x > 0)
+			x--;
+		else if (cmd == 's' && y < grid->h - 1)
+			y++;
+		else if (cmd == 'd' && x < grid->w - 1)
+			x++;
+		if (draw)
+			grid->c[y * grid->w + x] = 1;
 	}
-	while (iterations > 0)
+}
+
+/* Count the eight neighbors; cells outside the board are dead. */
+int		count_neighbors(t_grid *grid, int x, int y)
+{
+	int	count;
+	int	dx;
+	int	dy;
+
+	count = 0;
+	dy = -1;
+	while (dy <= 1)
 	{
-		next_generation(&board, next);
-		/* On echange les grilles seulement quand tout le tour est calcule. */
-		temporary = board.cells;
-		board.cells = next;
-		next = temporary;
-		iterations--;
+		dx = -1;
+		while (dx <= 1)
+		{
+			/* Exclude the cell itself and check the bounds. */
+			if ((dx != 0 || dy != 0)
+				&& (x + dx >= 0 && x + dx < grid->w)
+				&& (y + dy >= 0 && y + dy < grid->h))
+				count += grid->c[(y + dy) * grid->w + (x + dx)];
+			dx++;
+		}
+		dy++;
 	}
-	print_board(&board);
-	free(board.cells);
+	return (count);
+}
+
+/* Read the current board and write only to the next board. */
+void	next_generation(t_grid *grid, char *next)
+{
+	int	x;
+	int	y;
+	int	i;
+	int	n;
+
+	y = 0;
+	while (y < grid->h)
+	{
+		x = 0;
+		while (x < grid->w)
+		{
+			/* Convert coordinates (x, y) to an array index. */
+			i = y * grid->w + x;
+			n = count_neighbors(grid, x, y);
+			/* Birth with 3 neighbors; survival with 2 or 3. */
+			next[i] = (n == 3 || (n == 2 && grid->c[i]));
+			x++;
+		}
+		y++;
+	}
+}
+
+void	simulation(t_grid *grid, char *next, int iter)
+{
+	char	*tmp;
+
+	while (iter > 0)
+	{
+		next_generation(grid, next);
+		/* Swap the boards once the entire generation has been computed. */
+		tmp = grid->c;
+		grid->c = next;
+		next = tmp;
+		iter--;
+	}
+	/* After swapping, next points to the unused work board. */
 	free(next);
+}
+
+int	main(int ac, char **av)
+{
+	t_grid	grid;
+	char	*next;
+	int		iter;
+
+	if (ac != 4)
+		return (1);
+	grid.w = atoi(av[1]);
+	grid.h = atoi(av[2]);
+	iter = atoi(av[3]);
+	if (!(grid.w > 0 && grid.h > 0 && iter >= 0))
+		return (1);
+	/* calloc initializes every cell to 0: all cells are dead. */
+	grid.c = calloc((size_t)grid.h * grid.w, sizeof(char));
+	if (!grid.c)
+		return (1);
+	next = calloc((size_t)grid.h * grid.w, sizeof(char));
+	if (!next)
+		return (free(grid.c), 1);
+	draw_grid(&grid);
+	simulation(&grid, next, iter);
+	print_grid(&grid);
+
+	/* grid.c holds the final generation, which has already been printed. */
+	free(grid.c);
 	return (0);
 }
